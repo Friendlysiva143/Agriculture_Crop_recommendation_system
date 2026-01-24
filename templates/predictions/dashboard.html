@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}Crop Recommendation - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="text-white mb-4">🌾 Crop Recommendation System (Ensemble)</h1>
+            <p class="text-white-50">Enter soil parameters and climate conditions to get the best crop recommendation based on MAJORITY VOTING from multiple ML models</p>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-2">
+        <!-- Single Prediction Form -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;">
+                    <h5 class="mb-0">🔮 Single Prediction (Ensemble)</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Enter soil and climate parameters</p>
+                    
+                    <form method="POST" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Row 1: N, P, K -->
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ prediction_form.N.label }}</label>
+                                    {{ prediction_form.N }}
+                                    <small class="form-text text-muted">{{ prediction_form.N.help_text }}</small>
+                                    {% if prediction_form.N.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in prediction_form.N.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ prediction_form.P.label }}</label>
+                                    {{ prediction_form.P }}
+                                    <small class="form-text text-muted">{{ prediction_form.P.help_text }}</small>
+                                    {% if prediction_form.P.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in prediction_form.P.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ prediction_form.K.label }}</label>
+                                    {{ prediction_form.K }}
+                                    <small class="form-text text-muted">{{ prediction_form.K.help_text }}</small>
+                                    {% if prediction_form.K.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in prediction_form.K.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Temperature, Humidity, pH -->
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ prediction_form.temperature.label }}</label>
+                                    {{ prediction_form.temperature }}
+                                    <small class="form-text text-muted">{{ prediction_form.temperature.help_text }}</small>
+                                    {% if prediction_form.temperature.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in prediction_form.temperature.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ prediction_form.humidity.label }}</label>
+                                    {{ prediction_form.humidity }}
+                                    <small class="form-text text-muted">{{ prediction_form.humidity.help_text }}</small>
+                                    {% if prediction_form.humidity.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in prediction_form.humidity.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ prediction_form.ph.label }}</label>
+                                    {{ prediction_form.ph }}
+                                    <small class="form-text text-muted">{{ prediction_form.ph.help_text }}</small>
+                                    {% if prediction_form.ph.errors %}
+                                        <div class="text-danger mt-1">
+                                            {% for error in prediction_form.ph.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Rainfall -->
+                        <div class="mb-3">
+                            <label class="form-label">{{ prediction_form.rainfall.label }}</label>
+                            {{ prediction_form.rainfall }}
+                            <small class="form-text text-muted">{{ prediction_form.rainfall.help_text }}</small>
+                            {% if prediction_form.rainfall.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in prediction_form.rainfall.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <button type="submit" name="single_predict" class="btn btn-primary w-100">
+                            🎯 Get Crop Recommendation
+                        </button>
+                    </form>
+
+                    <!-- Prediction Result with Crop Image and Voting Info -->
+                    {% if prediction_result %}
+                        {% if prediction_result.success %}
+                        <div class="alert alert-success mt-4" role="alert">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h5>✅ Recommended Crop</h5>
+                                    <h3 class="mb-2" style="color: #667eea; font-weight: bold;">{{ prediction_result.prediction }}</h3>
+                                    
+                                    <p class="mb-2">
+                                        <strong>Confidence:</strong> {{ prediction_result.confidence|floatformat:1 }}%
+                                    </p>
+                                    
+                                    <!-- Show Voting Information -->
+                                    {% if prediction_result.votes %}
+                                    <div class="alert alert-info mt-3 py-2 px-3">
+                                        <small>
+                                            <strong>🗳️ Ensemble Voting:</strong><br>
+                                            {{ prediction_result.votes }} out of {{ prediction_result.total_models }} models agreed
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {% if prediction_result.image_url %}
+                                        <div style="text-align: center;">
+                                            <img 
+                                                src="{{ prediction_result.image_url }}" 
+                                                alt="{{ prediction_result.prediction }}" 
+                                                class="img-fluid rounded"
+                                                style="max-height: 220px; max-width: 100%; object-fit: cover; border: 2px solid #667eea;"
+                                                onerror="this.style.display='none'; document.getElementById('crop-placeholder-{{ forloop.counter }}').style.display='block';"
+                                            >
+                                            <div id="crop-placeholder-{{ forloop.counter }}" style="display:none; text-align:center; padding: 40px 20px; background: #f0f0f0; border-radius: 8px;">
+                                                <p style="color: #666; margin: 0;">🌾</p>
+                                                <p style="color: #666; font-size: 0.9rem;">{{ prediction_result.prediction }}<br>(Image not available)</p>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div style="text-align:center; padding: 40px 20px; background: #f0f0f0; border-radius: 8px;">
+                                            <p style="color: #666; margin: 0; font-size: 3rem;">🌾</p>
+                                            <p style="color: #666; font-size: 0.9rem;">{{ prediction_result.prediction }}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Show Individual Model Predictions (Optional) -->
+                        {% if prediction_result.model_predictions %}
+                        <div class="alert alert-secondary mt-3" role="alert">
+                            <h6 class="mb-2">📊 Individual Model Predictions:</h6>
+                            <div style="max-height: 200px; overflow-y: auto;">
+                                <table class="table table-sm table-hover mb-0">
+                                    <tbody>
+                                        {% for model_name, prediction in prediction_result.model_predictions.items %}
+                                        <tr>
+                                            <td style="width: 60%;"><small>{{ model_name }}</small></td>
+                                            <td style="width: 40%;"><small class="badge bg-info">{{ prediction }}</small></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% else %}
+                        <div class="alert alert-danger mt-4" role="alert">
+                            <h5>❌ Prediction Error</h5>
+                            <p class="mb-0">{{ prediction_result.error }}</p>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- CSV Batch Upload Form -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header text-white" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;">
+                    <h5 class="mb-0">📁 Batch Prediction (CSV) - Ensemble</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Upload CSV with multiple soil/climate records for ensemble predictions</p>
+                    
+                    <form method="POST" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ csv_form.csv_file.label }}</label>
+                            {{ csv_form.csv_file }}
+                            <small class="text-muted d-block mt-2">
+                                📝 CSV file (max 5MB) with columns: N, P, K, temperature, humidity, ph, rainfall
+                            </small>
+                            {% if csv_form.csv_file.errors %}
+                                <div class="text-danger mt-2">
+                                    {% for error in csv_form.csv_file.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <button type="submit" name="csv_predict" class="btn btn-primary w-100">
+                            📤 Upload & Predict (Ensemble)
+                        </button>
+                    </form>
+
+                    <!-- CSV Results -->
+                    {% if csv_results %}
+                    <div class="mt-4">
+                        <div class="alert alert-info">
+                            <strong>📊 Results:</strong> {{ total_predictions }} predictions made using ensemble
+                        </div>
+                        
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            {{ csv_results|safe }}
+                        </div>
+                        
+                        <a href="{% url 'predictions:download_results' %}" class="btn btn-success mt-3 w-100">
+                            ⬇️ Download Results as CSV
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How Ensemble Voting Works -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">🤖 How Ensemble Voting Works</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">This system uses <strong>12 different ML models</strong> and combines their predictions using <strong>majority voting</strong>:</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>✓ Models Used:</h6>
+                            <ul style="font-size: 0.9rem; margin-bottom: 0;">
+                                <li>Logistic Regression</li>
+                                <li>Decision Tree</li>
+                                <li>SVM (Linear SVC)</li>
+                                <li>K-Nearest Neighbors</li>
+                                <li>Naive Bayes</li>
+                                <li>Voting Classifier</li>
+                                <li>Random Forest</li>
+                                <li>AdaBoost</li>
+                                <li>Gradient Boosting</li>
+                                <li>LightGBM</li>
+                                <li>XGBoost</li>
+                                <li>Probabilistic LR</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>🗳️ Voting Process:</h6>
+                            <ol style="font-size: 0.9rem; margin-bottom: 0;">
+                                <li>Each model makes a prediction</li>
+                                <li>Count votes for each crop</li>
+                                <li>Select crop with most votes</li>
+                                <li>Calculate confidence as % of votes</li>
+                                <li>Display with crop emoji/image</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sample CSV Format -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">📋 Sample CSV Format</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-2">Your CSV file should look like this:</p>
+                    <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>N,P,K,temperature,humidity,ph,rainfall
+40,53,34,25.5,82,6.5,220
+60,45,28,28,75,7,180
+20,30,25,22,88,5.5,300
+</code></pre>
+                    <p class="text-muted mb-0" style="font-size: 0.9rem;">
+                        ℹ️ Column names are case-sensitive. Ensure exact spelling: N, P, K, temperature, humidity, ph, rainfall
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap Modal for Info -->
+<div class="modal fade" id="infoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📚 About Parameters</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Soil Parameters:</h6>
+                <ul>
+                    <li><strong>N (Nitrogen):</strong> 0-150 mg/kg - Essential for leaf growth</li>
+                    <li><strong>P (Phosphorus):</strong> 0-150 mg/kg - For root and flowering</li>
+                    <li><strong>K (Potassium):</strong> 0-150 mg/kg - For overall plant health</li>
+                </ul>
+                <h6 class="mt-3">Climate Parameters:</h6>
+                <ul>
+                    <li><strong>Temperature:</strong> 0-60°C - Average growing season temp</li>
+                    <li><strong>Humidity:</strong> 0-100% - Relative humidity</li>
+                    <li><strong>pH:</strong> 3.5-9.5 - Soil acidity/alkalinity</li>
+                    <li><strong>Rainfall:</strong> 0-350mm - Annual precipitation</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
