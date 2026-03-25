@@ -151,7 +151,7 @@ SESSION_SAVE_EVERY_REQUEST = True
 AUTHLIB_OAUTH_CLIENTS = {
     "keycloak": {
         "client_id": "app1-agriculture-client",
-        "client_secret": "OX04h6FAhy4fhjorBbeeSJVByXznYiO3",
+        "client_secret": "bkjyCTVroVCMBFKeDNnMSNxblleJYAj7",
         "server_metadata_url": "http://localhost:8080/realms/sso-demo/.well-known/openid-configuration",
         "client_kwargs": {
             "scope": "openid profile email"
@@ -161,3 +161,4 @@ AUTHLIB_OAUTH_CLIENTS = {
 
 SESSION_COOKIE_NAME = 'crop_sessionid'
 CSRF_COOKIE_NAME = 'crop_csrftoken'
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000']

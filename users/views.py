@@ -33,9 +33,24 @@ def login_view(request):
 
 @never_cache
 def callback_view(request):
-    token = oauth.keycloak.authorize_access_token(request)
-    userinfo = token.get('userinfo')
+    error = request.GET.get("error")
+    error_description = request.GET.get("error_description")
 
+    # Handle Keycloak error callback before token exchange
+    if error:
+        if error == "temporarily_unavailable" and error_description == "authentication_expired":
+            messages.warning(request, "Login session expired. Please sign in again.")
+        else:
+            messages.error(request, f"SSO failed: {error_description or error}")
+        return redirect('users:login')
+
+    try:
+        token = oauth.keycloak.authorize_access_token(request)
+    except Exception as e:
+        messages.error(request, f"Authentication failed: {str(e)}")
+        return redirect('users:login')
+
+    userinfo = token.get('userinfo')
     if not userinfo:
         userinfo = oauth.keycloak.userinfo(token=token)
 
@@ -60,7 +75,6 @@ def callback_view(request):
         }
     )
 
-    # Update local profile basics if missing
     changed = False
     if not profile.username and username:
         profile.username = username
@@ -71,7 +85,6 @@ def callback_view(request):
     if changed:
         profile.save()
 
-    # Redirect to complete profile if app-specific fields are missing
     if not profile.phone or not profile.location or not profile.soil_type or not profile.farm_size:
         return redirect('predictions:complete_profile')
 
@@ -82,18 +95,23 @@ def callback_view(request):
 @never_cache
 def logout_view(request):
     id_token = request.session.get('id_token')
+
     request.session.pop('user', None)
     request.session.pop('id_token', None)
     request.session.flush()
 
-    redirect_uri = request.build_absolute_uri('/auth/login/')
+    # Redirect to a normal page after logout, not /auth/login/
+    post_logout_redirect_uri = request.build_absolute_uri('/')
+
     params = {
-        "post_logout_redirect_uri": redirect_uri,
-        "id_token_hint": id_token,
+        "post_logout_redirect_uri": post_logout_redirect_uri,
     }
 
+    if id_token:
+        params["id_token_hint"] = id_token
+
     logout_url = (
-        "http://localhost:8080/realms/sso-demo/protocol/openid-connect/logout?"
+        "http://127.0.0.1:8080/realms/sso-demo/protocol/openid-connect/logout?"
         + urlencode(params)
     )
     return redirect(logout_url)
