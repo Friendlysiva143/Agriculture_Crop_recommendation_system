@@ -4,8 +4,15 @@ from django.views.decorators.cache import never_cache
 from authlib.integrations.django_client import OAuth
 from django.conf import settings
 from urllib.parse import urlencode
+from functools import wraps
+import jwt
 
 from predictions.models import UserProfile
+
+
+APP_CLIENT_ID = "app1-agriculture-client"
+APP_REQUIRED_ROLE = "app1_user"
+
 
 oauth = OAuth()
 oauth.register(
@@ -15,6 +22,39 @@ oauth.register(
     server_metadata_url=settings.AUTHLIB_OAUTH_CLIENTS['keycloak']['server_metadata_url'],
     client_kwargs=settings.AUTHLIB_OAUTH_CLIENTS['keycloak']['client_kwargs'],
 )
+
+
+def has_required_role(access_token, client_id, required_role):
+    try:
+        decoded = jwt.decode(
+            access_token,
+            options={"verify_signature": False, "verify_aud": False}
+        )
+    except Exception:
+        return False
+
+    resource_access = decoded.get("resource_access", {})
+    client_roles = resource_access.get(client_id, {}).get("roles", [])
+    return required_role in client_roles
+
+
+def require_app_role(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if 'user' not in request.session:
+            return redirect('users:login')
+
+        access_token = request.session.get('access_token')
+        if not access_token:
+            request.session.flush()
+            messages.error(request, "Session expired. Please login again.")
+            return redirect('users:login')
+
+        if not has_required_role(access_token, APP_CLIENT_ID, APP_REQUIRED_ROLE):
+            return redirect('users:unauthorized_access')
+
+        return view_func(request, *args, **kwargs)
+    return wrapper
 
 
 def register(request):
@@ -29,14 +69,11 @@ def login_view(request):
 
     redirect_uri = request.build_absolute_uri('/auth/callback/')
     return oauth.keycloak.authorize_redirect(request, redirect_uri)
-
-
 @never_cache
 def callback_view(request):
     error = request.GET.get("error")
     error_description = request.GET.get("error_description")
 
-    # Handle Keycloak error callback before token exchange
     if error:
         if error == "temporarily_unavailable" and error_description == "authentication_expired":
             messages.warning(request, "Login session expired. Please sign in again.")
@@ -49,6 +86,15 @@ def callback_view(request):
     except Exception as e:
         messages.error(request, f"Authentication failed: {str(e)}")
         return redirect('users:login')
+
+    access_token = token.get('access_token')
+    if not access_token:
+        messages.error(request, "Access token not received from Keycloak.")
+        return redirect('users:login')
+
+    if not has_required_role(access_token, APP_CLIENT_ID, APP_REQUIRED_ROLE):
+        request.session['id_token'] = token.get('id_token')
+        return redirect('users:unauthorized_access')
 
     userinfo = token.get('userinfo')
     if not userinfo:
@@ -66,6 +112,7 @@ def callback_view(request):
         'name': name,
     }
     request.session['id_token'] = token.get('id_token')
+    request.session['access_token'] = access_token
 
     profile, created = UserProfile.objects.get_or_create(
         keycloak_sub=sub,
@@ -98,9 +145,9 @@ def logout_view(request):
 
     request.session.pop('user', None)
     request.session.pop('id_token', None)
+    request.session.pop('access_token', None)
     request.session.flush()
 
-    # Redirect to a normal page after logout, not /auth/login/
     post_logout_redirect_uri = request.build_absolute_uri('/')
 
     params = {
@@ -116,12 +163,30 @@ def logout_view(request):
     )
     return redirect(logout_url)
 
+@never_cache
+def unauthorized_access(request):
+    id_token = request.session.get('id_token')
+
+    request.session.flush()
+
+    post_logout_redirect_uri = request.build_absolute_uri('/auth/login/')
+
+    params = {
+        "post_logout_redirect_uri": post_logout_redirect_uri,
+    }
+
+    if id_token:
+        params["id_token_hint"] = id_token
+
+    logout_url = (
+        "http://127.0.0.1:8080/realms/sso-demo/protocol/openid-connect/logout?"
+        + urlencode(params)
+    )
+    return redirect(logout_url)
 
 @never_cache
+@require_app_role
 def profile_view(request):
-    if 'user' not in request.session:
-        return redirect('users:login')
-
     profile = UserProfile.objects.filter(
         keycloak_sub=request.session['user'].get('sub')
     ).first()

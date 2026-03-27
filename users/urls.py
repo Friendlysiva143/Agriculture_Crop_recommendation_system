@@ -9,4 +9,5 @@ urlpatterns = [
     path('callback/', views.callback_view, name='callback'),
     path('logout/', views.logout_view, name='logout'),
     path('profile/', views.profile_view, name='profile'),
+    path('unauthorized-access/', views.unauthorized_access, name='unauthorized_access'),
 ]
