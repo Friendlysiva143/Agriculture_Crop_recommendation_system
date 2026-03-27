@@ -57,6 +57,17 @@ def require_app_role(view_func):
     return wrapper
 
 
+def build_keycloak_logout_url(post_logout_redirect_uri, id_token=None):
+    params = {
+        "post_logout_redirect_uri": post_logout_redirect_uri,
+    }
+
+    if id_token:
+        params["id_token_hint"] = id_token
+
+    return f"{settings.KEYCLOAK_LOGOUT_URL}?{urlencode(params)}"
+
+
 def register(request):
     messages.info(request, "Registration is handled through Keycloak.")
     return redirect('users:login')
@@ -69,6 +80,8 @@ def login_view(request):
 
     redirect_uri = request.build_absolute_uri('/auth/callback/')
     return oauth.keycloak.authorize_redirect(request, redirect_uri)
+
+
 @never_cache
 def callback_view(request):
     error = request.GET.get("error")
@@ -150,18 +163,12 @@ def logout_view(request):
 
     post_logout_redirect_uri = request.build_absolute_uri('/')
 
-    params = {
-        "post_logout_redirect_uri": post_logout_redirect_uri,
-    }
-
-    if id_token:
-        params["id_token_hint"] = id_token
-
-    logout_url = (
-        "http://127.0.0.1:8080/realms/sso-demo/protocol/openid-connect/logout?"
-        + urlencode(params)
+    logout_url = build_keycloak_logout_url(
+        post_logout_redirect_uri=post_logout_redirect_uri,
+        id_token=id_token
     )
     return redirect(logout_url)
+
 
 @never_cache
 def unauthorized_access(request):
@@ -171,18 +178,12 @@ def unauthorized_access(request):
 
     post_logout_redirect_uri = request.build_absolute_uri('/auth/login/')
 
-    params = {
-        "post_logout_redirect_uri": post_logout_redirect_uri,
-    }
-
-    if id_token:
-        params["id_token_hint"] = id_token
-
-    logout_url = (
-        "http://127.0.0.1:8080/realms/sso-demo/protocol/openid-connect/logout?"
-        + urlencode(params)
+    logout_url = build_keycloak_logout_url(
+        post_logout_redirect_uri=post_logout_redirect_uri,
+        id_token=id_token
     )
     return redirect(logout_url)
+
 
 @never_cache
 @require_app_role

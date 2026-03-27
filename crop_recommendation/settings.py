@@ -184,5 +184,10 @@ AUTHLIB_OAUTH_CLIENTS = {
         }
     }
 }
+
+KEYCLOAK_SERVER_URL = os.getenv("KEYCLOAK_SERVER_URL", "http://127.0.0.1:8080")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "sso-demo")
+KEYCLOAK_LOGOUT_URL = f"{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/logout"
+
 SESSION_COOKIE_NAME = 'crop_sessionid'
 CSRF_COOKIE_NAME = 'crop_csrftoken'
